@@ -81,5 +81,14 @@ namespace MMeter
 
 } // namespace MMeter
 
+#ifndef MMETER_ENABLE
+#	define MMETER_ENABLE 1
+#endif
+
 #define MMETER_FUNC_NAME __func__
-#define MMETER_FUNC_PROFILER MMeter::FuncProfiler _MMeterProfilerObject(MMETER_FUNC_NAME, &MMeter::getGlobalTree())
+
+#if MMETER_ENABLE == 1
+	#define MMETER_FUNC_PROFILER MMeter::FuncProfiler _MMeterProfilerObject(MMETER_FUNC_NAME, &MMeter::getGlobalTree())
+#else
+	#define MMETER_FUNC_PROFILER
+#endif
