@@ -1,3 +1,16 @@
+/*
+Made by Mauricio Smit
+repository: https://github.com/LegendaryMauricius/MMeter
+
+A simple WIP profiler library for c++. Include the 2 files and you're ready to go.
+Usage: To profile function execution time put the macro MMETER_FUNC_PROFILER
+at the start of any function you want to measure.
+To get the duration tree of measured functions use MMeter::getGlobalTree().
+You can output the tree directly to any output stream, so you can retrieve
+the measurements just by writing std::cout << MMeter::getGlobalTree();
+*/
+
+
 #include "MMeter.h"
 
 using namespace std::chrono_literals;
