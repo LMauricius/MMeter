@@ -70,11 +70,11 @@ void test()
 int main()
 {
     std::thread t1([]() {
-        MMETER_FUNC_PROFILER;
+        MMETER_SCOPE_PROFILER("main function subthread");
         test();
     });
     t1.join();
 
     std::cout << std::fixed << std::setprecision(6) << MMeter::getGlobalTreePtr()->totalsByDurationStr();
-    MMeter::getGlobalTreePtr()->outputBranchDurationsToOStream(std::cout);
+    std::cout << *MMeter::getGlobalTreePtr();
 }
