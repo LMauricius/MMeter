@@ -73,4 +73,5 @@ int main()
 		test();
 	}
 	std::cout << std::fixed << std::setprecision(6) << MMeter::getGlobalTree().totalsByDurationStr();
+	MMeter::getGlobalTree().outputBranchDurationsToOStream(std::cout);
 }
