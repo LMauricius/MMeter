@@ -1,6 +1,12 @@
 # MMeter
 A simple WIP profiler library for c++. Include the 2 files and you're ready to go.
 
+# Features
+- Function measurement
+- Scope measurement
+- Thread-safety
+- Structured output
+
 # Usage
 Usage is simple. Documentation for the functions is in the code comments
 
