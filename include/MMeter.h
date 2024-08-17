@@ -73,6 +73,27 @@ using Duration = std::chrono::duration<double>;
 class FuncProfilerTree;
 
 /**
+ * @brief prints a FuncProfilerTree to the output stream
+ * @param out the output stream
+ * @param tree the tree to print
+ * @returns the output stream
+ * @note behaves the same as FuncProfilerTree::outputBranchDurationsToOStream
+ */
+std::ostream &operator<<(std::ostream &out, FuncProfilerTree &tree);
+
+/**
+ * @brief prints a FuncProfilerTree to the output stream
+ * @param out the output stream
+ * @param tree the tree to print
+ * @returns the output stream
+ * @note behaves the same as FuncProfilerTree::outputBranchDurationsToOStream
+ */
+template <class _OS_T> _OS_T &operator<<(_OS_T &out, FuncProfilerTree &tree)
+{
+    return static_cast<_OS_T &>(static_cast<std::ostream &>(out) << tree);
+}
+
+/**
  * @returns a pointer to this thread's FuncProfilerTree
  */
 FuncProfilerTree *getThreadLocalTreePtr();
@@ -222,13 +243,6 @@ class FuncProfilerTree
     std::vector<FuncProfilerTree *> mBranchPtrStack;
     Duration mDuration, mChoreDuration;
 };
-
-std::ostream &operator<<(std::ostream &out, FuncProfilerTree &tree);
-
-template <class _OS_T> _OS_T &operator<<(_OS_T &out, FuncProfilerTree &tree)
-{
-    return static_cast<_OS_T &>(static_cast<std::ostream &>(out) << tree);
-}
 
 /**
  * @brief A scope guard class for measurements
