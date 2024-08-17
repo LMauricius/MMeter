@@ -10,6 +10,10 @@ You can output the tree directly to any output stream, so you can retrieve
 the measurements just by writing std::cout << MMeter::getGlobalTree();
 */
 
+#pragma once
+#ifndef INCLUDED_MMETER_H
+#define INCLUDED_MMETER_H
+
 #include <chrono>
 #include <map>
 #include <ostream>
@@ -265,3 +269,5 @@ class FuncProfiler
 };
 
 } // namespace MMeter
+
+#endif // INCLUDED_MMETER_H
