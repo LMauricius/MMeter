@@ -234,6 +234,11 @@ class FuncProfilerTree
     }
 
     /**
+     * @brief resets the tree to its initial state, before tracking anything
+     */
+    void reset();
+
+    /**
      * @brief Merges another tree into this one
      */
     void merge(const FuncProfilerTree &tree);

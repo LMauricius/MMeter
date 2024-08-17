@@ -40,6 +40,15 @@ void FuncProfilerTree::stackPop()
     mBranchPtrStack.pop_back();
 }
 
+void FuncProfilerTree::reset()
+{
+    mDuration = Duration::zero();
+    mChoreDuration = Duration::zero();
+    mBranches.clear();
+    mBranchPtrStack.clear();
+    mBranchPtrStack.push_back(this);
+}
+
 void FuncProfilerTree::merge(const FuncProfilerTree &tree)
 {
     mDuration += tree.mDuration;
