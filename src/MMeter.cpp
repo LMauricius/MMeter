@@ -24,14 +24,14 @@ FuncProfilerTree::FuncProfilerTree() : mDuration(0), mChoreDuration(0)
     mBranchPtrStack.push_back(this);
 }
 
-FuncProfilerTree &FuncProfilerTree::operator[](const String &branchName)
+FuncProfilerTree &FuncProfilerTree::existingOrNewBranch(const String &branchName)
 {
     return mBranches[branchName];
 }
 
 FuncProfilerTree &FuncProfilerTree::stackPush(const String &branchName)
 {
-    mBranchPtrStack.push_back(&(*mBranchPtrStack.back())[branchName]);
+    mBranchPtrStack.push_back(&(*mBranchPtrStack.back()).existingOrNewBranch(branchName));
     return *mBranchPtrStack.back();
 }
 
@@ -47,7 +47,7 @@ void FuncProfilerTree::merge(const FuncProfilerTree &tree)
 
     for (auto &nameBranchPair : tree.mBranches)
     {
-        (*this)[nameBranchPair.first].merge(nameBranchPair.second);
+        (*this).existingOrNewBranch(nameBranchPair.first).merge(nameBranchPair.second);
     }
 }
 
@@ -160,11 +160,11 @@ FuncProfiler::FuncProfiler(Time startTime, CString name, FuncProfilerTree *treeP
 FuncProfiler::~FuncProfiler()
 {
     auto endTime = std::chrono::system_clock::now();
-    mBranchPtr->measuredDuration() += endTime - mStartTime;
+    mBranchPtr->mDuration += endTime - mStartTime;
     auto parentBranchPtr = mTreePtr->stack()[mTreePtr->stack().size() - 2];
     mChoresDuration += std::chrono::system_clock::now() - endTime;
     mTreePtr->stackPop();
-    mBranchPtr->measuredNodeChoreDuration() += mChoresDuration;
+    mBranchPtr->mChoreDuration += mChoresDuration;
 }
 
 namespace

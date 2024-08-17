@@ -19,6 +19,48 @@ the measurements just by writing std::cout << MMeter::getGlobalTree();
 #include <string_view>
 #include <vector>
 
+#ifndef MMETER_ENABLE
+/**
+ * Whether to enable the profiler for this unit
+ * 0 = disable
+ * 1 = enable
+ * @note if undefined, it is enabled by default
+ */
+#define MMETER_ENABLE 1
+#endif
+
+/**
+ * @brief The name of the function being measured
+ */
+#define MMETER_FUNC_NAME __func__
+
+#if MMETER_ENABLE == 1
+
+/**
+ * @brief A scope guard macro for function execution timing measurement
+ * @note put this at the beginning of a function scope
+ * @warning only one such guard can be used per scope
+ */
+#define MMETER_FUNC_PROFILER                                                                                           \
+    MMeter::FuncProfiler _MMeterProfilerObject(std::chrono::system_clock::now(), MMETER_FUNC_NAME,                     \
+                                               MMeter::getThreadLocalTreePtr())
+
+/**
+ * @brief A scope guard macro for block execution timing measurement
+ * @param name the name of the block
+ * @note put this at the beginning of a function scope
+ * @warning only one such guard can be used per scope
+ */
+#define MMETER_SCOPE_PROFILER(name)                                                                                    \
+    MMeter::FuncProfiler _MMeterProfilerObject(std::chrono::system_clock::now(), name, MMeter::getThreadLocalTreePtr())
+
+#else
+
+#define MMETER_FUNC_PROFILER
+#define MMETER_SCOPE_PROFILER(name)
+
+#endif
+
 namespace MMeter
 {
 using String = std::string;
@@ -28,33 +70,70 @@ using CString = const char *;
 using Time = std::chrono::system_clock::time_point;
 using Duration = std::chrono::duration<double>;
 
-class FuncProfilerTree
+class FuncProfilerTree;
+
+/**
+ * @returns a pointer to this thread's FuncProfilerTree
+ */
+FuncProfilerTree *getThreadLocalTreePtr();
+
+/**
+ * @brief a thread-safe pointer to the global FuncProfilerTree
+ */
+class GlobalFuncProfilerTreePtr
 {
   public:
-    FuncProfilerTree();
+    GlobalFuncProfilerTreePtr();
+    ~GlobalFuncProfilerTreePtr();
 
-    FuncProfilerTree &operator[](const String &branchName);
+    FuncProfilerTree &operator*() const;
+    FuncProfilerTree *operator->() const;
+};
 
+/**
+ * @returns a thread-safe pointer to the global FuncProfilerTree
+ * @note the tree access is locked by this thread as long as any GlobalFuncProfilerTreePtr exists
+ */
+GlobalFuncProfilerTreePtr getGlobalTreePtr();
+
+/**
+ * @brief A branch of scope tree execution timing measurements
+ */
+class FuncProfilerTree
+{
+    friend class FuncProfiler;
+
+  public:
+    /*
+    Visualization and results
+    */
+
+    /**
+     * @returns All the branches by their names
+     */
     inline const std::map<String, FuncProfilerTree> &branches() const
     {
         return mBranches;
     }
-    inline Duration &measuredDuration()
+    /**
+     * @returns duration of this branch, including the chores and subbranches
+     */
+    inline Duration measuredDuration() const
     {
         return mDuration;
     }
-    inline const Duration &measuredDuration() const
-    {
-        return mDuration;
-    }
-    inline Duration &measuredNodeChoreDuration()
-    {
-        return mChoreDuration;
-    }
-    inline const Duration &measuredNodeChoreDuration() const
+
+    /**
+     * @returns duration of the chores in this branch, excluding the subbranches
+     */
+    inline Duration measuredNodeChoreDuration() const
     {
         return mChoreDuration;
     }
+
+    /**
+     * @returns duration of the chores in this branch, including the subbranches
+     */
     inline Duration branchChoreDuration() const
     {
         Duration tot = mChoreDuration;
@@ -64,26 +143,79 @@ class FuncProfilerTree
         }
         return tot;
     }
+
+    /**
+     * @returns duration of code execution in this branch, without chores, including the subbranches
+     */
     inline Duration realDuration() const
     {
         return mDuration - branchChoreDuration();
     }
 
+    /**
+     * @returns map of branch names to their real durations, summing all references and reentries
+     */
+    std::map<StringView, Duration> totals() const;
+
+    /**
+     * @returns pairs of real durations and branch names, ordered by duration, summing all references and reentries
+     */
+    std::set<std::pair<Duration, StringView>> totalsByDuration() const;
+
+    /**
+     * @returns string representation of the tree totals
+     */
+    String totalsStr(size_t indent = 0, size_t indentSpaces = 4) const;
+
+    /**
+     * @returns string representation of the tree totals, ordered by duration
+     */
+    String totalsByDurationStr(size_t indent = 0, size_t indentSpaces = 4) const;
+
+    /**
+     * @brief Outputs structured tree of branches to a stream, ordered by duration
+     * @param out Output stream
+     * @param indent Indentation level
+     * @param indentSpaces Number of spaces per indentation
+     */
+    void outputBranchDurationsToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
+
+    /*
+    Tree manipulation
+    */
+
+    /**
+     * @brief Default constructor
+     */
+    FuncProfilerTree();
+
+    /**
+     * @brief Returns a reference to the branch with the given name, creating it if it doesn't exist
+     */
+    FuncProfilerTree &existingOrNewBranch(const String &branchName);
+
+    /**
+     * @brief simulates a stack frame push
+     */
     FuncProfilerTree &stackPush(const String &branchName);
+
+    /**
+     * @brief simulates a stack frame pop
+     */
     void stackPop();
+
+    /**
+     * @returns the stack of currently called branch pointers
+     */
     inline const std::vector<FuncProfilerTree *> &stack() const
     {
         return mBranchPtrStack;
     }
 
+    /**
+     * @brief Merges another tree into this one
+     */
     void merge(const FuncProfilerTree &tree);
-
-    std::map<StringView, Duration> totals() const;
-    std::set<std::pair<Duration, StringView>> totalsByDuration() const;
-    String totalsStr(size_t indent = 0, size_t indentSpaces = 4) const;
-    String totalsByDurationStr(size_t indent = 0, size_t indentSpaces = 4) const;
-
-    void outputBranchDurationsToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
 
   private:
     std::map<String, FuncProfilerTree> mBranches;
@@ -98,6 +230,9 @@ template <class _OS_T> _OS_T &operator<<(_OS_T &out, FuncProfilerTree &tree)
     return static_cast<_OS_T &>(static_cast<std::ostream &>(out) << tree);
 }
 
+/**
+ * @brief A scope guard class for measurements
+ */
 class FuncProfiler
 {
   public:
@@ -110,31 +245,4 @@ class FuncProfiler
     FuncProfilerTree *mTreePtr, *mBranchPtr;
 };
 
-class GlobalFuncProfilerTreePtr
-{
-  public:
-    GlobalFuncProfilerTreePtr();
-    ~GlobalFuncProfilerTreePtr();
-
-    FuncProfilerTree &operator*() const;
-    FuncProfilerTree *operator->() const;
-};
-
-GlobalFuncProfilerTreePtr getGlobalTreePtr();
-FuncProfilerTree *getThreadLocalTreePtr();
-
 } // namespace MMeter
-
-#ifndef MMETER_ENABLE
-#define MMETER_ENABLE 1
-#endif
-
-#define MMETER_FUNC_NAME __func__
-
-#if MMETER_ENABLE == 1
-#define MMETER_FUNC_PROFILER                                                                                           \
-    MMeter::FuncProfiler _MMeterProfilerObject(std::chrono::system_clock::now(), MMETER_FUNC_NAME,                     \
-                                               MMeter::getThreadLocalTreePtr())
-#else
-#define MMETER_FUNC_PROFILER
-#endif
