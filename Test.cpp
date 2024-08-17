@@ -1,9 +1,10 @@
 #include "MMeter.h"
 
-#include <iostream>
 #include <iomanip>
-#include <string>
+#include <iostream>
 #include <sstream>
+#include <string>
+#include <thread>
 
 int calcInt(int ctr)
 {
@@ -68,10 +69,12 @@ void test()
 
 int main()
 {
-	{
-		MMETER_FUNC_PROFILER;
-		test();
-	}
-	std::cout << std::fixed << std::setprecision(6) << MMeter::getGlobalTree().totalsByDurationStr();
-	MMeter::getGlobalTree().outputBranchDurationsToOStream(std::cout);
+    std::thread t1([]() {
+        MMETER_FUNC_PROFILER;
+        test();
+    });
+    t1.join();
+
+    std::cout << std::fixed << std::setprecision(6) << MMeter::getGlobalTreePtr()->totalsByDurationStr();
+    MMeter::getGlobalTreePtr()->outputBranchDurationsToOStream(std::cout);
 }

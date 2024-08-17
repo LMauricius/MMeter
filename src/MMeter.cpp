@@ -12,6 +12,8 @@ the measurements just by writing std::cout << MMeter::getGlobalTree();
 
 #include "MMeter.h"
 
+#include <mutex>
+
 using namespace std::chrono_literals;
 using std::chrono::duration_cast;
 
@@ -36,6 +38,17 @@ FuncProfilerTree &FuncProfilerTree::stackPush(const String &branchName)
 void FuncProfilerTree::stackPop()
 {
     mBranchPtrStack.pop_back();
+}
+
+void FuncProfilerTree::merge(const FuncProfilerTree &tree)
+{
+    mDuration += tree.mDuration;
+    mChoreDuration += tree.mChoreDuration;
+
+    for (auto &nameBranchPair : tree.mBranches)
+    {
+        (*this)[nameBranchPair.first].merge(nameBranchPair.second);
+    }
 }
 
 std::map<StringView, Duration> FuncProfilerTree::totals() const
@@ -154,9 +167,58 @@ FuncProfiler::~FuncProfiler()
     mBranchPtr->measuredNodeChoreDuration() += mChoresDuration;
 }
 
-FuncProfilerTree &getGlobalTree()
+namespace
 {
-    static FuncProfilerTree tree;
-    return tree;
+
+FuncProfilerTree globalTree;
+std::recursive_mutex globalTreeMutex;
+
+class ThreadFuncProfilerTreeWrapper
+{
+  public:
+    ThreadFuncProfilerTreeWrapper() = default;
+    ~ThreadFuncProfilerTreeWrapper()
+    {
+        globalTreeMutex.lock();
+        globalTree.merge(localTree);
+        globalTreeMutex.unlock();
+    }
+
+    FuncProfilerTree localTree;
+};
+
+thread_local ThreadFuncProfilerTreeWrapper threadTreeWrapper;
+
+} // namespace
+
+GlobalFuncProfilerTreePtr::GlobalFuncProfilerTreePtr()
+{
+    globalTreeMutex.lock();
 }
+
+GlobalFuncProfilerTreePtr::~GlobalFuncProfilerTreePtr()
+{
+    globalTreeMutex.unlock();
+}
+
+FuncProfilerTree &GlobalFuncProfilerTreePtr::operator*() const
+{
+    return globalTree;
+}
+
+FuncProfilerTree *GlobalFuncProfilerTreePtr::operator->() const
+{
+    return &globalTree;
+}
+
+GlobalFuncProfilerTreePtr getGlobalTreePtr()
+{
+    return GlobalFuncProfilerTreePtr();
+}
+
+FuncProfilerTree *getThreadLocalTreePtr()
+{
+    return &threadTreeWrapper.localTree;
+}
+
 } // namespace MMeter

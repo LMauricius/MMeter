@@ -76,6 +76,8 @@ class FuncProfilerTree
         return mBranchPtrStack;
     }
 
+    void merge(const FuncProfilerTree &tree);
+
     std::map<StringView, Duration> totals() const;
     std::set<std::pair<Duration, StringView>> totalsByDuration() const;
     String totalsStr(size_t indent = 0, size_t indentSpaces = 4) const;
@@ -108,7 +110,18 @@ class FuncProfiler
     FuncProfilerTree *mTreePtr, *mBranchPtr;
 };
 
-FuncProfilerTree &getGlobalTree();
+class GlobalFuncProfilerTreePtr
+{
+  public:
+    GlobalFuncProfilerTreePtr();
+    ~GlobalFuncProfilerTreePtr();
+
+    FuncProfilerTree &operator*() const;
+    FuncProfilerTree *operator->() const;
+};
+
+GlobalFuncProfilerTreePtr getGlobalTreePtr();
+FuncProfilerTree *getThreadLocalTreePtr();
 
 } // namespace MMeter
 
@@ -121,7 +134,7 @@ FuncProfilerTree &getGlobalTree();
 #if MMETER_ENABLE == 1
 #define MMETER_FUNC_PROFILER                                                                                           \
     MMeter::FuncProfiler _MMeterProfilerObject(std::chrono::system_clock::now(), MMETER_FUNC_NAME,                     \
-                                               &MMeter::getGlobalTree())
+                                               MMeter::getThreadLocalTreePtr())
 #else
 #define MMETER_FUNC_PROFILER
 #endif
