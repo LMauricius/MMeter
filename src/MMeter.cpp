@@ -68,6 +68,10 @@ std::map<StringView, Duration> FuncProfilerTree::totals() const
     {
         ret[nameBranchPair.first] = nameBranchPair.second.realDuration();
     }
+    if (mDuration.count() > 0)
+    {
+        ret["<body>"] = realNodeDuration();
+    }
 
     for (auto &nameBranchPair : mBranches)
     {
@@ -107,11 +111,6 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
     auto tot = totals();
     SStream ss;
 
-    /*for (size_t i = 0; i < indent; i++)
-        ss << ' ';
-
-    ss << realDuration().count() << "s" << std::endl;*/
-
     for (auto nameDurPair : tot)
     {
         for (size_t i = 0; i < indent * indentSpaces; i++)
@@ -141,20 +140,78 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
 
 void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t indent, size_t indentSpaces) const
 {
-    std::set<std::pair<Duration, const decltype(mBranches)::value_type *>> durationPtrPairs;
-
-    for (auto &nameBranchPair : mBranches)
+    if (mBranches.size() > 0)
     {
-        durationPtrPairs.emplace(nameBranchPair.second.realDuration(), &nameBranchPair);
+        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>> durationPtrPairs;
+
+        for (auto &nameBranchPair : mBranches)
+        {
+            durationPtrPairs.emplace(nameBranchPair.second.realDuration(), &nameBranchPair);
+        }
+        if (mDuration.count() > 0)
+        {
+            durationPtrPairs.emplace(realNodeDuration(), nullptr);
+        }
+
+        for (auto &durationPtrPair : durationPtrPairs)
+        {
+            for (size_t i = 0; i < indent * indentSpaces; i++)
+                out << ' ';
+
+            out << durationPtrPair.first.count() << "s - ";
+            if (durationPtrPair.second == nullptr)
+            {
+                out << "<body>" << std::endl;
+            }
+            else
+            {
+                out << durationPtrPair.second->first << std::endl;
+                durationPtrPair.second->second.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
+            }
+        }
     }
+}
 
-    for (auto &durationPtrPair : durationPtrPairs)
+void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_t indent, size_t indentSpaces) const
+{
+    if (mBranches.size() > 0)
     {
-        for (size_t i = 0; i < indent * indentSpaces; i++)
-            out << ' ';
+        auto totalDur = realDuration();
 
-        out << durationPtrPair.first.count() << "s - " << durationPtrPair.second->first << std::endl;
-        durationPtrPair.second->second.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
+        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>> durationPtrPairs;
+
+        for (auto &nameBranchPair : mBranches)
+        {
+            durationPtrPairs.emplace(nameBranchPair.second.realDuration(), &nameBranchPair);
+        }
+        if (mDuration.count() > 0)
+        {
+            durationPtrPairs.emplace(realNodeDuration(), nullptr);
+        }
+
+        for (auto &durationPtrPair : durationPtrPairs)
+        {
+            for (size_t i = 0; i < indent * indentSpaces; i++)
+                out << ' ';
+
+            if (mDuration.count() > 0)
+            {
+                out << (durationPtrPair.first.count() / totalDur.count() * 100.0) << "% - ";
+            }
+            else
+            {
+                out << "?% - ";
+            }
+            if (durationPtrPair.second == nullptr)
+            {
+                out << "<body>" << std::endl;
+            }
+            else
+            {
+                out << durationPtrPair.second->first << std::endl;
+                durationPtrPair.second->second.outputBranchPercentagesToOStream(out, indent + 1, indentSpaces);
+            }
+        }
     }
 }
 

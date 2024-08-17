@@ -178,6 +178,20 @@ class FuncProfilerTree
     }
 
     /**
+     * @returns duration of code execution in this branch, without chores, excluding the subbranches
+     */
+    inline Duration realNodeDuration() const
+    {
+        Duration subTotal = Duration::zero();
+        for (auto &nameBranchPair : mBranches)
+        {
+            subTotal += nameBranchPair.second.realDuration();
+        }
+
+        return realDuration() - subTotal;
+    }
+
+    /**
      * @returns map of branch names to their real durations, summing all references and reentries
      */
     std::map<StringView, Duration> totals() const;
@@ -204,6 +218,14 @@ class FuncProfilerTree
      * @param indentSpaces Number of spaces per indentation
      */
     void outputBranchDurationsToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
+
+    /**
+     * @brief Outputs structured tree of branches to a stream, ordered by duration. Duration expressed relatively.
+     * @param out Output stream
+     * @param indent Indentation level
+     * @param indentSpaces Number of spaces per indentation
+     */
+    void outputBranchPercentagesToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
 
     /*
     Tree manipulation
