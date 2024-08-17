@@ -10,85 +10,116 @@ You can output the tree directly to any output stream, so you can retrieve
 the measurements just by writing std::cout << MMeter::getGlobalTree();
 */
 
-#include <string>
-#include <sstream>
-#include <ostream>
-#include <map>
-#include <vector>
-#include <set>
 #include <chrono>
+#include <map>
+#include <ostream>
+#include <set>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace MMeter
 {
-	using String = std::string;
-	using SStream = std::stringstream;
-	using CString = char*;
-	using Time = std::chrono::system_clock::time_point;
-	using Duration = std::chrono::duration<double>;
+using String = std::string;
+using SStream = std::stringstream;
+using CString = char *;
+using Time = std::chrono::system_clock::time_point;
+using Duration = std::chrono::duration<double>;
 
-	class FuncProfilerTree
-	{
-	public:
-		FuncProfilerTree();
+class FuncProfilerTree
+{
+  public:
+    FuncProfilerTree();
 
-		FuncProfilerTree &operator[](const String& branchName);
+    FuncProfilerTree &operator[](const String &branchName);
 
-		inline const std::map<String, FuncProfilerTree> &branches() const { return mBranches; }
-		inline Duration& duration() { return mDuration; }
-		inline const Duration& duration() const { return mDuration; }
-		inline Duration& choreDuration() { return mChoreDuration; }
-		inline const Duration& choreDuration() const { return mChoreDuration; }
-		inline Duration realDuration() const { return mDuration - mChoreDuration; }
+    inline const std::map<String, FuncProfilerTree> &branches() const
+    {
+        return mBranches;
+    }
+    inline Duration &measuredDuration()
+    {
+        return mDuration;
+    }
+    inline const Duration &measuredDuration() const
+    {
+        return mDuration;
+    }
+    inline Duration &measuredNodeChoreDuration()
+    {
+        return mChoreDuration;
+    }
+    inline const Duration &measuredNodeChoreDuration() const
+    {
+        return mChoreDuration;
+    }
+    inline Duration branchChoreDuration() const
+    {
+        Duration tot = mChoreDuration;
+        for (auto &nameBranchPair : mBranches)
+        {
+            tot += nameBranchPair.second.branchChoreDuration();
+        }
+        return tot;
+    }
+    inline Duration realDuration() const
+    {
+        return mDuration - branchChoreDuration();
+    }
 
-		FuncProfilerTree &stackPush(const String& branchName);
-		void stackPop();
-		inline const std::vector<FuncProfilerTree *> &stack() const { return mBranchPtrStack; }
+    FuncProfilerTree &stackPush(const String &branchName);
+    void stackPop();
+    inline const std::vector<FuncProfilerTree *> &stack() const
+    {
+        return mBranchPtrStack;
+    }
 
-		std::map<String, Duration> totals() const;
-		std::set<std::pair<Duration, String>> totalsByDuration() const;
-		String totalsStr(size_t indent = 0, size_t indentSpaces = 4) const;
-		String totalsByDurationStr(size_t indent = 0, size_t indentSpaces = 4) const;
+    std::map<String, Duration> totals() const;
+    std::set<std::pair<Duration, String>> totalsByDuration() const;
+    String totalsStr(size_t indent = 0, size_t indentSpaces = 4) const;
+    String totalsByDurationStr(size_t indent = 0, size_t indentSpaces = 4) const;
 
-		void outputBranchDurationsToOStream(std::ostream& out, size_t indent = 0, size_t indentSpaces = 4) const;
+    void outputBranchDurationsToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
 
-	private:
-		std::map<String, FuncProfilerTree> mBranches;
-		std::vector<FuncProfilerTree *> mBranchPtrStack;
-		Duration mDuration, mChoreDuration;
-	};
+  private:
+    std::map<String, FuncProfilerTree> mBranches;
+    std::vector<FuncProfilerTree *> mBranchPtrStack;
+    Duration mDuration, mChoreDuration;
+};
 
-	std::ostream& operator << (std::ostream& out, FuncProfilerTree& tree);
+std::ostream &operator<<(std::ostream &out, FuncProfilerTree &tree);
 
-	template<class _OS_T>
-	_OS_T& operator << (_OS_T& out, FuncProfilerTree& tree)
-	{
-		return static_cast<_OS_T &>(static_cast<std::ostream &>(out) << tree);
-	}
+template <class _OS_T> _OS_T &operator<<(_OS_T &out, FuncProfilerTree &tree)
+{
+    return static_cast<_OS_T &>(static_cast<std::ostream &>(out) << tree);
+}
 
-	class FuncProfiler
-	{
-	public:
-		FuncProfiler(const String& name, FuncProfilerTree* treePtr);
-		~FuncProfiler();
+class FuncProfiler
+{
+  public:
+    FuncProfiler(Time startTime, const String &name, FuncProfilerTree *treePtr);
+    ~FuncProfiler();
 
-	private:
-		Time mStartTime;
-		Duration mChoresDuration;
-		FuncProfilerTree *mTreePtr, *mBranchPtr;
-	};
+  private:
+    Time mStartTime;
+    Duration mChoresDuration;
+    FuncProfilerTree *mTreePtr, *mBranchPtr;
+};
 
-	FuncProfilerTree &getGlobalTree();
+FuncProfilerTree &getGlobalTree();
 
 } // namespace MMeter
 
 #ifndef MMETER_ENABLE
-#	define MMETER_ENABLE 1
+#define MMETER_ENABLE 1
 #endif
 
 #define MMETER_FUNC_NAME __func__
 
 #if MMETER_ENABLE == 1
-	#define MMETER_FUNC_PROFILER MMeter::FuncProfiler _MMeterProfilerObject(MMETER_FUNC_NAME, &MMeter::getGlobalTree())
+#define MMETER_FUNC_PROFILER                                                                                           \
+    MMeter::FuncProfiler _MMeterProfilerObject(std::chrono::system_clock::now(), MMETER_FUNC_NAME,                     \
+                                               &MMeter::getGlobalTree())
 #else
-	#define MMETER_FUNC_PROFILER
+#define MMETER_FUNC_PROFILER
 #endif
