@@ -19,29 +19,29 @@ Example:
 
 int calcInt(int ctr)
 {
-	MMETER_FUNC_PROFILER;
+    MMETER_FUNC_PROFILER;
 
-	int val = 0;
-	for (int i = 0; i <= ctr; i++)
-		val += i;
+    int val = 0;
+    for (int i = 0; i <= ctr; i++)
+        val += i;
 
-	return val;
+    return val;
 }
 
 int calcFloat(int ctr)
 {
-	MMETER_FUNC_PROFILER;
+    MMETER_FUNC_PROFILER;
 
-	float val = 0;
-	for (int i = 0; i <= ctr; i++)
-		val += i;
+    float val = 0;
+    for (int i = 0; i <= ctr; i++)
+        val += i;
 
-	return val;
+    return val;
 }
 
 void test()
 {
-	MMETER_FUNC_PROFILER;
+    MMETER_FUNC_PROFILER;
     calcInt(50000000);
     calcFloat(50000000);
 }
