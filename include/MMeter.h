@@ -16,13 +16,15 @@ the measurements just by writing std::cout << MMeter::getGlobalTree();
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace MMeter
 {
 using String = std::string;
+using StringView = std::string_view;
 using SStream = std::stringstream;
-using CString = char *;
+using CString = const char *;
 using Time = std::chrono::system_clock::time_point;
 using Duration = std::chrono::duration<double>;
 
@@ -74,8 +76,8 @@ class FuncProfilerTree
         return mBranchPtrStack;
     }
 
-    std::map<String, Duration> totals() const;
-    std::set<std::pair<Duration, String>> totalsByDuration() const;
+    std::map<StringView, Duration> totals() const;
+    std::set<std::pair<Duration, StringView>> totalsByDuration() const;
     String totalsStr(size_t indent = 0, size_t indentSpaces = 4) const;
     String totalsByDurationStr(size_t indent = 0, size_t indentSpaces = 4) const;
 
@@ -97,7 +99,7 @@ template <class _OS_T> _OS_T &operator<<(_OS_T &out, FuncProfilerTree &tree)
 class FuncProfiler
 {
   public:
-    FuncProfiler(Time startTime, const String &name, FuncProfilerTree *treePtr);
+    FuncProfiler(Time startTime, CString name, FuncProfilerTree *treePtr);
     ~FuncProfiler();
 
   private:

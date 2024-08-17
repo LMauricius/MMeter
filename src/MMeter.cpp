@@ -38,9 +38,9 @@ void FuncProfilerTree::stackPop()
     mBranchPtrStack.pop_back();
 }
 
-std::map<String, Duration> FuncProfilerTree::totals() const
+std::map<StringView, Duration> FuncProfilerTree::totals() const
 {
-    std::map<String, Duration> ret;
+    std::map<StringView, Duration> ret;
 
     for (auto &nameBranchPair : mBranches)
     {
@@ -68,13 +68,13 @@ std::map<String, Duration> FuncProfilerTree::totals() const
     return ret;
 }
 
-std::set<std::pair<Duration, String>> FuncProfilerTree::totalsByDuration() const
+std::set<std::pair<Duration, StringView>> FuncProfilerTree::totalsByDuration() const
 {
-    std::set<std::pair<Duration, String>> ret;
+    std::set<std::pair<Duration, StringView>> ret;
 
     for (auto &nameDurPair : totals())
     {
-        ret.insert({nameDurPair.second, nameDurPair.first});
+        ret.emplace(nameDurPair.second, nameDurPair.first);
     }
 
     return ret;
@@ -136,7 +136,7 @@ std::ostream &operator<<(std::ostream &out, FuncProfilerTree &tree)
     return out;
 }
 
-FuncProfiler::FuncProfiler(Time startTime, const String &name, FuncProfilerTree *treePtr) : mTreePtr(treePtr)
+FuncProfiler::FuncProfiler(Time startTime, CString name, FuncProfilerTree *treePtr) : mTreePtr(treePtr)
 {
     mStartTime = startTime;
 
