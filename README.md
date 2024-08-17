@@ -7,6 +7,23 @@ A simple WIP profiler library for c++. Include the 2 files and you're ready to g
 - Thread-safety
 - Structured output
 
+# Why not use valgrind?
+Originally, I made this tool while waiting for a system update on a rolling-release OS,
+because I couldn't install valgrind until everything else was up-to-date.
+
+The tool ended up as a standalone thing with a few specific pros compared to mature industry-standard profilers.
+- It is simple and minimal
+- You can simply choose the areas of interest for profiling
+- Completely portable. It relies only on standard C++17
+- It is MUCH faster. since it profiles only select areas of interest, it shouldn't interfere with non-profiled code performance,
+  aside from possible cache misses. Chore timing is taken into account, of course.
+
+# Installation?
+No installation is required. Just include the `<MMeter repo>/include` directory, and add the `<MMeter repo>/src/MMeter.cpp` file to your build system.
+
+Note: always depend on a specific release. The API might not be stable between releases.
+If you want a specific 'unreleased' functionality, dependency of a specific commit is also ok.
+
 # Usage
 Usage is simple. Documentation for the functions is in the code comments
 
