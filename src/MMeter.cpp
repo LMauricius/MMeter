@@ -132,13 +132,20 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
 
 void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t indent, size_t indentSpaces) const
 {
+    std::set<std::pair<Duration, const decltype(mBranches)::value_type *>> durationPtrPairs;
+
     for (auto &nameBranchPair : mBranches)
+    {
+        durationPtrPairs.emplace(nameBranchPair.second.realDuration(), &nameBranchPair);
+    }
+
+    for (auto &durationPtrPair : durationPtrPairs)
     {
         for (size_t i = 0; i < indent * indentSpaces; i++)
             out << ' ';
 
-        out << nameBranchPair.first << ": " << nameBranchPair.second.realDuration().count() << "s" << std::endl;
-        nameBranchPair.second.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
+        out << durationPtrPair.first.count() << "s - " << durationPtrPair.second->first << std::endl;
+        durationPtrPair.second->second.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
     }
 }
 
