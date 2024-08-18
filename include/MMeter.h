@@ -273,6 +273,7 @@ class FuncProfilerTree
     std::map<String, FuncProfilerTree> mBranches;
     std::vector<FuncProfilerTree *> mBranchPtrStack;
     Duration mDuration, mChoreDuration;
+    std::size_t mCount;
 };
 
 /**

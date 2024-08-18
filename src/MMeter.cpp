@@ -19,7 +19,7 @@ using std::chrono::duration_cast;
 
 namespace MMeter
 {
-FuncProfilerTree::FuncProfilerTree() : mDuration(0), mChoreDuration(0)
+FuncProfilerTree::FuncProfilerTree() : mDuration(0), mChoreDuration(0), mCount(0)
 {
     mBranchPtrStack.push_back(this);
 }
@@ -44,6 +44,7 @@ void FuncProfilerTree::reset()
 {
     mDuration = Duration::zero();
     mChoreDuration = Duration::zero();
+    mCount = 0;
     mBranches.clear();
     mBranchPtrStack.clear();
     mBranchPtrStack.push_back(this);
@@ -53,6 +54,7 @@ void FuncProfilerTree::merge(const FuncProfilerTree &tree)
 {
     mDuration += tree.mDuration;
     mChoreDuration += tree.mChoreDuration;
+    mCount += tree.mCount;
 
     for (auto &nameBranchPair : tree.mBranches)
     {
@@ -158,14 +160,14 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
             for (size_t i = 0; i < indent * indentSpaces; i++)
                 out << ' ';
 
-            out << durationPtrPair.first.count() << "s - ";
+            out << durationPtrPair.first.count() << "s /";
             if (durationPtrPair.second == nullptr)
             {
-                out << "<body>" << std::endl;
+                out << mCount << " - " << "<body>" << std::endl;
             }
             else
             {
-                out << durationPtrPair.second->first << std::endl;
+                out << durationPtrPair.second->second.mCount << " - " << durationPtrPair.second->first << std::endl;
                 durationPtrPair.second->second.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
             }
         }
@@ -196,19 +198,27 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
 
             if (mDuration.count() > 0)
             {
-                out << (durationPtrPair.first.count() / totalDur.count() * 100.0) << "% - ";
+                out << (durationPtrPair.first.count() / totalDur.count() * 100.0) << "% /";
             }
             else
             {
-                out << durationPtrPair.first.count() << "s - ";
+                out << durationPtrPair.first.count() << "s /";
             }
 
             if (durationPtrPair.second == nullptr)
             {
-                out << "<body>" << std::endl;
+                out << 1 << " - <body>" << std::endl;
             }
             else
             {
+                if (mDuration.count() > 0)
+                {
+                    out << ((double)durationPtrPair.second->second.mCount / (double)mCount) << " - ";
+                }
+                else
+                {
+                    out << durationPtrPair.second->second.mCount << " - ";
+                }
                 out << durationPtrPair.second->first << std::endl;
                 durationPtrPair.second->second.outputBranchPercentagesToOStream(out, indent + 1, indentSpaces);
             }
@@ -235,9 +245,10 @@ FuncProfiler::~FuncProfiler()
 {
     auto endTime = std::chrono::system_clock::now();
     mBranchPtr->mDuration += endTime - mStartTime;
+    mBranchPtr->mCount++;
     auto parentBranchPtr = mTreePtr->stack()[mTreePtr->stack().size() - 2];
-    mChoresDuration += std::chrono::system_clock::now() - endTime;
     mTreePtr->stackPop();
+    mChoresDuration += std::chrono::system_clock::now() - endTime;
     mBranchPtr->mChoreDuration += mChoresDuration;
 }
 
