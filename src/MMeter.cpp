@@ -131,7 +131,7 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
         for (size_t i = 0; i < indent * indentSpaces; i++)
             ss << ' ';
 
-        ss << name << ": " << result.realDuration.count() << "s /" << result.callCount << std::endl;
+        ss << name << ": " << result.realDuration.count() << "s /#" << result.callCount << std::endl;
     }
 
     return ss.str();
@@ -146,7 +146,7 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
         for (size_t i = 0; i < indent * indentSpaces; i++)
             ss << ' ';
 
-        ss << duration.count() << "s /" << result.callCount << " - " << result.branchName << std::endl;
+        ss << duration.count() << "s /#" << result.callCount << " - " << result.branchName << std::endl;
     }
 
     return ss.str();
@@ -172,7 +172,7 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
             for (size_t i = 0; i < indent * indentSpaces; i++)
                 out << ' ';
 
-            out << durationPtrPair.first.count() << "s /";
+            out << durationPtrPair.first.count() << "s /#";
             if (durationPtrPair.second == nullptr)
             {
                 out << mCount << " - " << "<body>" << std::endl;
@@ -219,17 +219,17 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
 
             if (durationPtrPair.second == nullptr)
             {
-                out << 1 << " - <body>" << std::endl;
+                out << "^" << 1.0 << " - <body>" << std::endl;
             }
             else
             {
                 if (mDuration.count() > 0)
                 {
-                    out << ((double)durationPtrPair.second->second.mCount / (double)mCount) << " - ";
+                    out << "^" << ((double)durationPtrPair.second->second.mCount / (double)mCount) << " - ";
                 }
                 else
                 {
-                    out << durationPtrPair.second->second.mCount << " - ";
+                    out << "#" << durationPtrPair.second->second.mCount << " - ";
                 }
                 out << durationPtrPair.second->first << std::endl;
                 durationPtrPair.second->second.outputBranchPercentagesToOStream(out, indent + 1, indentSpaces);
