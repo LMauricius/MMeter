@@ -76,6 +76,6 @@ int main()
     t1.join();
 
     std::cout << std::fixed << std::setprecision(6) << MMeter::getGlobalTreePtr()->totalsByDurationStr() << std::endl;
-    std::cout << *MMeter::getGlobalTreePtr();
+    std::cout << *MMeter::getGlobalTreePtr() << std::endl;
     MMeter::getGlobalTreePtr()->outputBranchPercentagesToOStream(std::cout);
 }

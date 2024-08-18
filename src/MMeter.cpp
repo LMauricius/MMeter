@@ -200,8 +200,9 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
             }
             else
             {
-                out << "?% - ";
+                out << durationPtrPair.first.count() << "s - ";
             }
+
             if (durationPtrPair.second == nullptr)
             {
                 out << "<body>" << std::endl;
