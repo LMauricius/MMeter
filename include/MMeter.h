@@ -77,6 +77,52 @@ using Duration = std::chrono::duration<double>;
 class FuncProfilerTree;
 
 /**
+ * @brief a struct containing the results of a measurement
+ */
+struct Results
+{
+    Results() = delete;
+    Results(Results &&) = default;
+    Results(const Results &) = default;
+    inline Results(StringView branchName, Duration realDuration, std::size_t callCount)
+        : branchName(branchName), realDuration(realDuration), callCount(callCount)
+    {
+    }
+
+    Results &operator=(Results &&) = default;
+    Results &operator=(const Results &) = default;
+
+    StringView branchName;
+    Duration realDuration;
+    std::size_t callCount;
+
+    inline bool operator==(const Results &other) const
+    {
+        return branchName == other.branchName;
+    }
+    inline bool operator!=(const Results &other) const
+    {
+        return branchName != other.branchName;
+    }
+    inline bool operator<(const Results &other) const
+    {
+        return branchName < other.branchName;
+    }
+    inline bool operator>(const Results &other) const
+    {
+        return branchName > other.branchName;
+    }
+    inline bool operator<=(const Results &other) const
+    {
+        return branchName <= other.branchName;
+    }
+    inline bool operator>=(const Results &other) const
+    {
+        return branchName >= other.branchName;
+    }
+};
+
+/**
  * @brief prints a FuncProfilerTree to the output stream
  * @param out the output stream
  * @param tree the tree to print
@@ -192,14 +238,19 @@ class FuncProfilerTree
     }
 
     /**
-     * @returns map of branch names to their real durations, summing all references and reentries
+     * @returns map of branch names to their results, summing all references and reentries
      */
-    std::map<StringView, Duration> totals() const;
+    std::map<StringView, Results> totals() const;
 
     /**
-     * @returns pairs of real durations and branch names, ordered by duration, summing all references and reentries
+     * @returns pairs of real durations and results, ordered by duration, summing all references and reentries
      */
-    std::set<std::pair<Duration, StringView>> totalsByDuration() const;
+    std::set<std::pair<Duration, Results>> totalsByDuration() const;
+
+    /**
+     * @returns pairs of call counts and results, ordered by call counts, summing all references and reentries
+     */
+    std::set<std::pair<std::size_t, Results>> totalsByCallCount() const;
 
     /**
      * @returns string representation of the tree totals

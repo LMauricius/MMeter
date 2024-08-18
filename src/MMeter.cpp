@@ -62,33 +62,35 @@ void FuncProfilerTree::merge(const FuncProfilerTree &tree)
     }
 }
 
-std::map<StringView, Duration> FuncProfilerTree::totals() const
+std::map<StringView, Results> FuncProfilerTree::totals() const
 {
-    std::map<StringView, Duration> ret;
+    std::map<StringView, Results> ret;
 
     for (auto &nameBranchPair : mBranches)
     {
-        ret[nameBranchPair.first] = nameBranchPair.second.realDuration();
+        ret.emplace(nameBranchPair.first,
+                    Results(nameBranchPair.first, nameBranchPair.second.realDuration(), nameBranchPair.second.mCount));
     }
     if (mDuration.count() > 0)
     {
-        ret["<body>"] = realNodeDuration();
+        ret.emplace("<body>", Results("<body>", realNodeDuration(), mCount));
     }
 
     for (auto &nameBranchPair : mBranches)
     {
         auto subTot = nameBranchPair.second.totals();
 
-        for (auto &nameDurPair : subTot)
+        for (auto &nameResultPair : subTot)
         {
-            auto it = ret.find(nameDurPair.first);
+            auto it = ret.find(nameResultPair.first);
             if (it == ret.end())
             {
-                ret[nameDurPair.first] = nameDurPair.second;
+                ret.emplace(nameResultPair.first, nameResultPair.second);
             }
             else
             {
-                it->second += nameDurPair.second;
+                it->second.realDuration += nameResultPair.second.realDuration;
+                it->second.callCount += nameResultPair.second.callCount;
             }
         }
     }
@@ -96,13 +98,25 @@ std::map<StringView, Duration> FuncProfilerTree::totals() const
     return ret;
 }
 
-std::set<std::pair<Duration, StringView>> FuncProfilerTree::totalsByDuration() const
+std::set<std::pair<Duration, Results>> FuncProfilerTree::totalsByDuration() const
 {
-    std::set<std::pair<Duration, StringView>> ret;
+    std::set<std::pair<Duration, Results>> ret;
 
-    for (auto &nameDurPair : totals())
+    for (auto [name, result] : totals())
     {
-        ret.emplace(nameDurPair.second, nameDurPair.first);
+        ret.emplace(result.realDuration, result);
+    }
+
+    return ret;
+}
+
+std::set<std::pair<std::size_t, Results>> FuncProfilerTree::totalsByCallCount() const
+{
+    std::set<std::pair<std::size_t, Results>> ret;
+
+    for (auto &nameResultPair : totals())
+    {
+        ret.emplace(nameResultPair.second.callCount, nameResultPair.second);
     }
 
     return ret;
@@ -110,15 +124,14 @@ std::set<std::pair<Duration, StringView>> FuncProfilerTree::totalsByDuration() c
 
 String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
 {
-    auto tot = totals();
     SStream ss;
 
-    for (auto nameDurPair : tot)
+    for (auto [name, result] : totals())
     {
         for (size_t i = 0; i < indent * indentSpaces; i++)
             ss << ' ';
 
-        ss << nameDurPair.first << ": " << nameDurPair.second.count() << "s" << std::endl;
+        ss << name << ": " << result.realDuration.count() << "s /" << result.callCount << std::endl;
     }
 
     return ss.str();
@@ -126,15 +139,14 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
 
 String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces) const
 {
-    auto tot = totalsByDuration();
     SStream ss;
 
-    for (auto nameDurPair : tot)
+    for (auto [duration, result] : totalsByDuration())
     {
         for (size_t i = 0; i < indent * indentSpaces; i++)
             ss << ' ';
 
-        ss << nameDurPair.first.count() << "s - " << nameDurPair.second << std::endl;
+        ss << duration.count() << "s /" << result.callCount << " - " << result.branchName << std::endl;
     }
 
     return ss.str();
