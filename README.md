@@ -68,23 +68,35 @@ int main()
     std::thread t1([]() {
         MMETER_SCOPE_PROFILER("main function subthread");
         test();
+        test();
     });
     t1.join();
 
     std::cout << std::fixed << std::setprecision(6) << MMeter::getGlobalTreePtr()->totalsByDurationStr() << std::endl;
-    std::cout << *MMeter::getGlobalTreePtr();
+    std::cout << *MMeter::getGlobalTreePtr() << std::endl;
+    MMeter::getGlobalTreePtr()->outputBranchPercentagesToOStream(std::cout);
 }
 ```
 
 Output:
 ```
-0.0844672s - calcFloat
-0.0845418s - calcInt
-0.169012s - test
-0.169013s - main function subthread
+0.186687s /#2 - calcInt
+0.213233s /#2 - calcFloat
+0.399922s /#2 - test
+0.399923s /#7 - <body>
+0.399923s /#1 - main function subthread
 
-0.169013s - main function subthread
-    0.169012s - test
-        0.084467s - calcFloat
-        0.084542s - calcInt
+0.399923s /#1 - main function subthread
+    0.000001s /#1 - <body>
+    0.399922s /#2 - test
+        0.000003s /#2 - <body>
+        0.186687s /#2 - calcInt
+        0.213233s /#2 - calcFloat
+
+0.399923s /#1 - main function subthread
+    0.000183% /^1.000000 - <body>
+    99.999817% /^2.000000 - test
+        0.000673% /^1.000000 - <body>
+        46.680728% /^1.000000 - calcInt
+        53.318599% /^1.000000 - calcFloat
 ```
