@@ -5,6 +5,8 @@ A simple WIP profiler library for c++. Include the 2 files and you're ready to g
 - Function measurement
 - Scope measurement
 - Thread-safety
+- Duration
+- Call counts
 - Structured output
 
 # Why not use valgrind?
