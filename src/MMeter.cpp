@@ -137,6 +137,17 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
     return ss.str();
 }
 
+void FuncProfilerTree::outputTotalsCSVToOStream(std::ostream &out) const
+{
+    SStream ss;
+    out << "Function Name,Time (s),Call Number\n";
+
+    for (auto [name, result] : totals())
+    {
+        out << name << "," << result.realDuration.count() << "," << result.callCount << std::endl;
+    }
+}
+
 String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces) const
 {
     SStream ss;
@@ -150,6 +161,16 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
     }
 
     return ss.str();
+}
+
+void FuncProfilerTree::outputTotalsByDurationCSVToOStream(std::ostream &out) const
+{
+    out << "Time (s),Call Number,Function Name\n";
+
+    for (auto [duration, result] : totalsByDuration())
+    {
+        out << duration.count() << "," << result.callCount << "," << result.branchName << std::endl;
+    }
 }
 
 void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t indent, size_t indentSpaces) const
@@ -175,7 +196,8 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
             out << durationPtrPair.first.count() << "s /#";
             if (durationPtrPair.second == nullptr)
             {
-                out << mCount << " - " << "<body>" << std::endl;
+                out << mCount << " - "
+                    << "<body>" << std::endl;
             }
             else
             {
