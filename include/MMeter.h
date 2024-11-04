@@ -278,6 +278,18 @@ class FuncProfilerTree
      */
     void outputBranchPercentagesToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
 
+    /**
+     * @brief Outputs csv-formatted totals (totalsStr) to a stream
+     * @param out Output stream
+     */
+    void outputTotalsCSVToOStream(std::ostream &out) const;
+
+    /**
+     * @brief Outputs csv-formatted totals (totalsByDurationStr) to a stream
+     * @param out Output stream
+     */
+    void outputTotalsByDurationCSVToOStream(std::ostream &out) const;
+
     /*
     Tree manipulation
     */
