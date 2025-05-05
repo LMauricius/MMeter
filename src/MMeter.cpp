@@ -131,10 +131,14 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
 
     for (auto [name, result] : resVector)
     {
-        for (size_t i = 0; i < indent * indentSpaces; i++)
-            ss << ' ';
+        for (size_t i = 0; i < indent; i++) {
+            ss << '|';
+            for (size_t j = 0; j < indentSpaces; j++) {
+                ss << ' ';
+            }
+        }
 
-        ss << name << ": " << result.realDuration.count() << "s /#" << result.callCount << std::endl;
+        ss << '+' << name << ": " << result.realDuration.count() << "s /#" << result.callCount << std::endl;
     }
 
     return ss.str();
@@ -149,10 +153,16 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
 
     for (auto [duration, result] : resVector)
     {
-        for (size_t i = 0; i < indent * indentSpaces; i++)
-            ss << ' ';
+        for (size_t i = 0; i < indent; i++)
+        {
+            ss << '|';
+            for (size_t j = 0; j < indentSpaces; j++)
+            {
+                ss << ' ';
+            }
+        }
 
-        ss << duration.count() << "s /#" << result.callCount << " - " << result.branchName << std::endl;
+        ss << '+' << duration.count() << "s /#" << result.callCount << " - " << result.branchName << std::endl;
     }
 
     return ss.str();
@@ -177,10 +187,16 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
 
         for (auto &durationPtrPair : durationPtrPairs)
         {
-            for (size_t i = 0; i < indent * indentSpaces; i++)
-                out << ' ';
+            for (size_t i = 0; i < indent; i++)
+            {
+                out << '|';
+                for (size_t j = 0; j < indentSpaces; j++)
+                {
+                    out << ' ';
+                }
+            }
 
-            out << durationPtrPair.first.count() << "s /#";
+            out << '+' << durationPtrPair.first.count() << "s /#";
             if (durationPtrPair.second == nullptr)
             {
                 out << mCount << " - " << "<body>" << std::endl;
@@ -215,16 +231,22 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
 
         for (auto &durationPtrPair : durationPtrPairs)
         {
-            for (size_t i = 0; i < indent * indentSpaces; i++)
-                out << ' ';
+            for (size_t i = 0; i < indent; i++)
+            {
+                out << '|';
+                for (size_t j = 0; j < indentSpaces; j++)
+                {
+                    out << ' ';
+                }
+            }
 
             if (mDuration.count() > 0)
             {
-                out << (durationPtrPair.first.count() / totalDur.count() * 100.0) << "% /";
+                out << '+' << (durationPtrPair.first.count() / totalDur.count() * 100.0) << "% /";
             }
             else
             {
-                out << durationPtrPair.first.count() << "s /";
+                out << '+' << durationPtrPair.first.count() << "s /";
             }
 
             if (durationPtrPair.second == nullptr)
