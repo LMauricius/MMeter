@@ -126,7 +126,10 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
 {
     SStream ss;
 
-    for (auto [name, result] : totals())
+    auto resMap = totals();
+    auto resVector = std::vector(resMap.rbegin(), resMap.rend());
+
+    for (auto [name, result] : resVector)
     {
         for (size_t i = 0; i < indent * indentSpaces; i++)
             ss << ' ';
@@ -141,7 +144,10 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
 {
     SStream ss;
 
-    for (auto [duration, result] : totalsByDuration())
+    auto resSet = totalsByDuration();
+    auto resVector = std::vector(resSet.rbegin(), resSet.rend());
+
+    for (auto [duration, result] : resVector)
     {
         for (size_t i = 0; i < indent * indentSpaces; i++)
             ss << ' ';
@@ -156,7 +162,9 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
 {
     if (mBranches.size() > 0)
     {
-        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>> durationPtrPairs;
+        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>,
+                 std::greater<std::pair<Duration, const decltype(mBranches)::value_type *>>>
+            durationPtrPairs;
 
         for (auto &nameBranchPair : mBranches)
         {
@@ -192,7 +200,9 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
     {
         auto totalDur = realDuration();
 
-        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>> durationPtrPairs;
+        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>,
+                 std::greater<std::pair<Duration, const decltype(mBranches)::value_type *>>>
+            durationPtrPairs;
 
         for (auto &nameBranchPair : mBranches)
         {
