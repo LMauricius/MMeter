@@ -19,6 +19,35 @@ using std::chrono::duration_cast;
 
 namespace MMeter
 {
+
+// Utility
+namespace
+{
+struct StringFormatter
+{
+    StringView newlineStr = "\n";
+};
+
+struct FmtStringView
+{
+    StringView view;
+    const StringFormatter &formatter;
+};
+
+template <typename OSS> OSS &operator<<(OSS &oss, const FmtStringView &fmtStr)
+{
+    for (auto c : fmtStr.view)
+    {
+        if (c == '\n')
+            oss << fmtStr.formatter.newlineStr;
+        else
+            oss << c;
+    }
+    return oss;
+}
+
+} // namespace
+
 FuncProfilerTree::FuncProfilerTree() : mDuration(0), mChoreDuration(0), mCount(0)
 {
     mBranchPtrStack.push_back(this);
@@ -145,6 +174,19 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
 
 String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces) const
 {
+    SStream indents;
+    for (size_t i = 0; i < indent; i++)
+    {
+        indents << '|';
+        for (size_t j = 0; j < indentSpaces; j++)
+        {
+            indents << ' ';
+        }
+    }
+    String indentstr = indents.str();
+    String newlinestr = "\n" + indentstr + "| ";
+    StringFormatter fmtr{newlinestr};
+
     SStream ss;
 
     auto resSet = totalsByDuration();
@@ -152,16 +194,8 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
 
     for (auto &[duration, result] : resVector)
     {
-        for (size_t i = 0; i < indent; i++)
-        {
-            ss << '|';
-            for (size_t j = 0; j < indentSpaces; j++)
-            {
-                ss << ' ';
-            }
-        }
-
-        ss << '+' << duration.count() << "s /" << result.callCount << " - " << result.branchName << std::endl;
+        ss << indentstr << '+' << duration.count() << "s /" << result.callCount << " - "
+           << FmtStringView{result.branchName, fmtr} << std::endl;
     }
 
     return ss.str();
@@ -184,18 +218,22 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
             durationPtrPairs.emplace(realNodeDuration(), nullptr);
         }
 
+        SStream indents;
+        for (size_t i = 0; i < indent; i++)
+        {
+            indents << '|';
+            for (size_t j = 0; j < indentSpaces; j++)
+            {
+                indents << ' ';
+            }
+        }
+        String indentstr = indents.str();
+        String newlinestr = "\n" + indentstr + "| ";
+        StringFormatter fmtr{newlinestr};
+
         for (auto &[duration, nameBranchPairPtr] : durationPtrPairs)
         {
-            for (size_t i = 0; i < indent; i++)
-            {
-                out << '|';
-                for (size_t j = 0; j < indentSpaces; j++)
-                {
-                    out << ' ';
-                }
-            }
-
-            out << '+' << duration.count() << "s /";
+            out << indentstr << '+' << duration.count() << "s /";
             if (nameBranchPairPtr == nullptr)
             {
                 out << mCount << " - " << "<body>" << std::endl;
@@ -205,7 +243,7 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
                 auto &name = nameBranchPairPtr->first;
                 auto &branch = nameBranchPairPtr->second;
 
-                out << branch.mCount << " - " << name << std::endl;
+                out << branch.mCount << " - " << FmtStringView{name, fmtr} << std::endl;
                 branch.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
             }
         }
@@ -231,24 +269,28 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
             durationPtrPairs.emplace(realNodeDuration(), nullptr);
         }
 
+        SStream indents;
+        for (size_t i = 0; i < indent; i++)
+        {
+            indents << '|';
+            for (size_t j = 0; j < indentSpaces; j++)
+            {
+                indents << ' ';
+            }
+        }
+        String indentstr = indents.str();
+        String newlinestr = "\n" + indentstr + "| ";
+        StringFormatter fmtr{newlinestr};
+
         for (auto &[duration, nameBranchPairPtr] : durationPtrPairs)
         {
-            for (size_t i = 0; i < indent; i++)
-            {
-                out << '|';
-                for (size_t j = 0; j < indentSpaces; j++)
-                {
-                    out << ' ';
-                }
-            }
-
             if (mDuration.count() > 0)
             {
-                out << '+' << (duration.count() / totalDur.count() * 100.0) << "% /";
+                out << indentstr << '+' << (duration.count() / totalDur.count() * 100.0) << "% /";
             }
             else
             {
-                out << '+' << duration.count() << "s /";
+                out << indentstr << '+' << duration.count() << "s /";
             }
 
             if (nameBranchPairPtr == nullptr)
@@ -268,7 +310,7 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
                 {
                     out << branch.mCount << " - ";
                 }
-                out << name << std::endl;
+                out << FmtStringView{name, fmtr} << std::endl;
                 branch.outputBranchPercentagesToOStream(out, indent + 1, indentSpaces);
             }
         }
