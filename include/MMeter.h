@@ -11,6 +11,7 @@ the measurements just by writing std::cout << MMeter::getGlobalTree();
 */
 
 #pragma once
+#include <utility>
 #ifndef INCLUDED_MMETER_H
 #define INCLUDED_MMETER_H
 
@@ -77,49 +78,129 @@ using Duration = std::chrono::duration<double>;
 class FuncProfilerTree;
 
 /**
+ * A comparator for a value class
+ */
+template <typename ClassT> struct Compare
+{
+    using CompareTargetT = ClassT;
+
+    virtual bool operator()(const ClassT &a, const ClassT &b) const = 0;
+    virtual bool operator()(const ClassT *a, const ClassT *b) const = 0;
+};
+
+/**
+ * A comparator by a member of a value class
+ */
+template <typename ClassT, auto p_ResultMember> struct MemberCompare : public Compare<ClassT>
+{
+    using is_transparent = void;
+    using MemberT = decltype(std::declval<ClassT>().*p_ResultMember);
+    bool operator()(const ClassT &a, const ClassT &b) const
+    {
+        return a.*p_ResultMember < b.*p_ResultMember;
+    }
+    template <typename CompT> bool operator()(const ClassT &a, CompT &&b) const
+    {
+        return a.*p_ResultMember < b;
+    }
+    template <typename CompT> bool operator()(CompT &&a, const ClassT &b) const
+    {
+        return a < b.*p_ResultMember;
+    }
+
+    bool operator()(const ClassT *a, const ClassT *b) const
+    {
+        return a->*p_ResultMember < b->*p_ResultMember;
+    }
+    template <typename CompT> bool operator()(const ClassT *a, CompT &&b) const
+    {
+        return a->*p_ResultMember < b;
+    }
+    template <typename CompT> bool operator()(CompT &&a, const ClassT *b) const
+    {
+        return a < b->*p_ResultMember;
+    }
+};
+
+/**
+ * An inverse order comparator
+ */
+template <typename Comparator> struct InverseOrder : public Compare<typename Comparator::CompareTargetT>
+{
+    using is_transparent = void;
+
+    template <typename... ArgTs> InverseOrder(ArgTs &&...args) : m_comp(std::forward<ArgTs>(args)...)
+    {
+    }
+
+    bool operator()(const typename Comparator::CompareTargetT &a, const typename Comparator::CompareTargetT &b) const
+    {
+        return m_comp(b, a);
+    }
+    bool operator()(const typename Comparator::CompareTargetT *a, const typename Comparator::CompareTargetT *b) const
+    {
+        return m_comp(b, a);
+    }
+
+    template <typename T1, typename T2> bool operator()(T1 &&a, T2 &&b) const
+    {
+        return m_comp(std::forward<T2>(b), std::forward<T1>(a));
+    }
+    template <typename T1, typename T2> bool operator()(T1 &&a, T2 &&b)
+    {
+        return m_comp(std::forward<T2>(b), std::forward<T1>(a));
+    }
+
+  protected:
+    Comparator m_comp;
+};
+
+/**
+ * A comparator by a member of a value class
+ */
+template <typename ClassT, auto p_ResultMethod> struct MethodCompare : public Compare<ClassT>
+{
+    using is_transparent = void;
+    using MemberT = decltype((std::declval<ClassT>().*p_ResultMethod)());
+    bool operator()(const ClassT &a, const ClassT &b) const
+    {
+        return (a.*p_ResultMethod)() < (b.*p_ResultMethod)();
+    }
+    template <typename CompT> bool operator()(const ClassT &a, CompT &&b) const
+    {
+        return (a.*p_ResultMethod)() < b;
+    }
+    template <typename CompT> bool operator()(CompT &&a, const ClassT &b) const
+    {
+        return a < (b.*p_ResultMethod)();
+    }
+
+    bool operator()(const ClassT *a, const ClassT *b) const
+    {
+        return (a->*p_ResultMethod)() < (b->*p_ResultMethod)();
+    }
+    template <typename CompT> bool operator()(const ClassT *a, CompT &&b) const
+    {
+        return (a->*p_ResultMethod)() < b;
+    }
+    template <typename CompT> bool operator()(CompT &&a, const ClassT *b) const
+    {
+        return a < (b->*p_ResultMethod)();
+    }
+};
+
+/**
  * @brief a struct containing the results of a measurement
  */
 struct Results
 {
-    Results() = delete;
-    Results(Results &&) = default;
-    Results(const Results &) = default;
-    inline Results(StringView branchName, Duration realDuration, std::size_t callCount)
-        : branchName(branchName), realDuration(realDuration), callCount(callCount)
-    {
-    }
-
-    Results &operator=(Results &&) = default;
-    Results &operator=(const Results &) = default;
-
     StringView branchName;
     Duration realDuration;
     std::size_t callCount;
 
-    inline bool operator==(const Results &other) const
-    {
-        return branchName == other.branchName;
-    }
-    inline bool operator!=(const Results &other) const
-    {
-        return branchName != other.branchName;
-    }
-    inline bool operator<(const Results &other) const
-    {
-        return branchName < other.branchName;
-    }
-    inline bool operator>(const Results &other) const
-    {
-        return branchName > other.branchName;
-    }
-    inline bool operator<=(const Results &other) const
-    {
-        return branchName <= other.branchName;
-    }
-    inline bool operator>=(const Results &other) const
-    {
-        return branchName >= other.branchName;
-    }
+    using ByName = MemberCompare<Results, &Results::branchName>;
+    using ByDuration = InverseOrder<MemberCompare<Results, &Results::realDuration>>;
+    using ByCallCount = InverseOrder<MemberCompare<Results, &Results::callCount>>;
 };
 
 /**
@@ -174,7 +255,15 @@ class FuncProfilerTree
 {
     friend class FuncProfiler;
 
+    StringView mName;
+    Duration mDuration, mChoreDuration;
+    std::size_t mCount;
+
   public:
+    using ByName = MemberCompare<FuncProfilerTree, &FuncProfilerTree::mName>;
+    using ByDuration = InverseOrder<MemberCompare<FuncProfilerTree, &FuncProfilerTree::mDuration>>;
+    using ByCallCount = InverseOrder<MemberCompare<FuncProfilerTree, &FuncProfilerTree::mCount>>;
+
     /*
     Visualization and results
     */
@@ -182,10 +271,19 @@ class FuncProfilerTree
     /**
      * @returns All the branches by their names
      */
-    inline const std::map<String, FuncProfilerTree> &branches() const
+    inline const std::set<FuncProfilerTree, ByName> &branches() const
     {
         return mBranches;
     }
+
+    /**
+     * @returns The name of this branch
+     */
+    inline StringView name() const
+    {
+        return mName;
+    }
+
     /**
      * @returns duration of this branch, including the chores and subbranches
      */
@@ -208,9 +306,9 @@ class FuncProfilerTree
     inline Duration branchChoreDuration() const
     {
         Duration tot = mChoreDuration;
-        for (auto &nameBranchPair : mBranches)
+        for (auto &branch : mBranches)
         {
-            tot += nameBranchPair.second.branchChoreDuration();
+            tot += branch.branchChoreDuration();
         }
         return tot;
     }
@@ -229,28 +327,26 @@ class FuncProfilerTree
     inline Duration realNodeDuration() const
     {
         Duration subTotal = Duration::zero();
-        for (auto &nameBranchPair : mBranches)
+        for (auto &branch : mBranches)
         {
-            subTotal += nameBranchPair.second.realDuration();
+            subTotal += branch.realDuration();
         }
 
         return realDuration() - subTotal;
     }
 
-    /**
-     * @returns map of branch names to their results, summing all references and reentries
-     */
-    std::map<StringView, Results> totals() const;
+    using ByRealDuration = InverseOrder<MethodCompare<FuncProfilerTree, &FuncProfilerTree::realDuration>>;
+    using ByRealNodeDuration = InverseOrder<MethodCompare<FuncProfilerTree, &FuncProfilerTree::realNodeDuration>>;
 
     /**
-     * @returns pairs of real durations and results, ordered by duration, summing all references and reentries
+     * @returns set of results, summing all references and reentries
      */
-    std::set<std::pair<Duration, Results>> totalsByDuration() const;
+    std::set<Results, Results::ByName> totals() const;
 
     /**
-     * @returns pairs of call counts and results, ordered by call counts, summing all references and reentries
+     * @returns vector of results, ordered by the specified Compare, summing all references and reentries
      */
-    std::set<std::pair<std::size_t, Results>> totalsByCallCount() const;
+    std::vector<Results> totalsBy(const Compare<Results> &comp) const;
 
     /**
      * @returns string representation of the tree totals
@@ -260,7 +356,7 @@ class FuncProfilerTree
     /**
      * @returns string representation of the tree totals, ordered by duration
      */
-    String totalsByDurationStr(size_t indent = 0, size_t indentSpaces = 4) const;
+    String totalsStrBy(const Compare<Results> &comp, size_t indent = 0, size_t indentSpaces = 4) const;
 
     /**
      * @brief Outputs structured tree of branches to a stream, ordered by duration
@@ -270,32 +366,24 @@ class FuncProfilerTree
      */
     void outputBranchDurationsToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
 
-    /**
-     * @brief Outputs structured tree of branches to a stream, ordered by duration. Duration expressed relatively.
-     * @param out Output stream
-     * @param indent Indentation level
-     * @param indentSpaces Number of spaces per indentation
-     */
-    void outputBranchPercentagesToOStream(std::ostream &out, size_t indent = 0, size_t indentSpaces = 4) const;
-
     /*
     Tree manipulation
     */
 
     /**
-     * @brief Default constructor
+     * @brief Name constructor
      */
-    FuncProfilerTree();
+    explicit FuncProfilerTree(StringView name);
 
     /**
      * @brief Returns a reference to the branch with the given name, creating it if it doesn't exist
      */
-    FuncProfilerTree &existingOrNewBranch(const String &branchName);
+    FuncProfilerTree &existingOrNewBranch(StringView branchName);
 
     /**
      * @brief simulates a stack frame push
      */
-    FuncProfilerTree &stackPush(const String &branchName);
+    FuncProfilerTree &stackPush(StringView branchName);
 
     /**
      * @brief simulates a stack frame pop
@@ -321,10 +409,8 @@ class FuncProfilerTree
     void merge(const FuncProfilerTree &tree);
 
   private:
-    std::map<String, FuncProfilerTree> mBranches;
+    std::set<FuncProfilerTree, ByName> mBranches;
     std::vector<FuncProfilerTree *> mBranchPtrStack;
-    Duration mDuration, mChoreDuration;
-    std::size_t mCount;
 };
 
 /**

@@ -13,6 +13,8 @@ the measurements just by writing std::cout << MMeter::getGlobalTree();
 #include "MMeter.h"
 
 #include <mutex>
+#include <string>
+#include <thread>
 
 using namespace std::chrono_literals;
 using std::chrono::duration_cast;
@@ -48,17 +50,22 @@ template <typename OSS> OSS &operator<<(OSS &oss, const FmtStringView &fmtStr)
 
 } // namespace
 
-FuncProfilerTree::FuncProfilerTree() : mDuration(0), mChoreDuration(0), mCount(0)
+FuncProfilerTree::FuncProfilerTree(StringView name) : mName(name), mDuration(0), mChoreDuration(0), mCount(0)
 {
     mBranchPtrStack.push_back(this);
 }
 
-FuncProfilerTree &FuncProfilerTree::existingOrNewBranch(const String &branchName)
+FuncProfilerTree &FuncProfilerTree::existingOrNewBranch(StringView branchName)
 {
-    return mBranches[branchName];
+    auto it = mBranches.find(branchName);
+
+    if (it == mBranches.end())
+        it = mBranches.emplace(branchName).first;
+
+    return const_cast<FuncProfilerTree &>(*it);
 }
 
-FuncProfilerTree &FuncProfilerTree::stackPush(const String &branchName)
+FuncProfilerTree &FuncProfilerTree::stackPush(StringView branchName)
 {
     mBranchPtrStack.push_back(&(*mBranchPtrStack.back()).existingOrNewBranch(branchName));
     return *mBranchPtrStack.back();
@@ -85,40 +92,40 @@ void FuncProfilerTree::merge(const FuncProfilerTree &tree)
     mChoreDuration += tree.mChoreDuration;
     mCount += tree.mCount;
 
-    for (auto &nameBranchPair : tree.mBranches)
+    for (auto &branch : tree.mBranches)
     {
-        (*this).existingOrNewBranch(nameBranchPair.first).merge(nameBranchPair.second);
+        (*this).existingOrNewBranch(branch.name()).merge(branch);
     }
 }
 
-std::map<StringView, Results> FuncProfilerTree::totals() const
+std::set<Results, Results::ByName> FuncProfilerTree::totals() const
 {
-    std::map<StringView, Results> ret;
+    std::set<Results, Results::ByName> ret;
 
-    for (auto &[name, branch] : mBranches)
+    for (auto &branch : mBranches)
     {
-        ret.emplace(name, Results(name, branch.realDuration(), branch.mCount));
+        ret.emplace(branch.name(), branch.realDuration(), branch.mCount);
     }
     if (mDuration.count() > 0)
     {
-        ret.emplace("<body>", Results("<body>", realNodeDuration(), mCount));
+        ret.emplace("<body>", realNodeDuration(), mCount);
     }
 
-    for (auto &[name, branch] : mBranches)
+    for (auto &branch : mBranches)
     {
         auto subTot = branch.totals();
 
-        for (auto &[subName, result] : subTot)
+        for (auto &result : subTot)
         {
-            auto it = ret.find(subName);
+            auto it = ret.find(result.branchName);
             if (it == ret.end())
             {
-                ret.emplace(subName, result);
+                ret.emplace(result);
             }
             else
             {
-                it->second.realDuration += result.realDuration;
-                it->second.callCount += result.callCount;
+                const_cast<Results &>(*it).realDuration += result.realDuration;
+                const_cast<Results &>(*it).callCount += result.callCount;
             }
         }
     }
@@ -126,26 +133,12 @@ std::map<StringView, Results> FuncProfilerTree::totals() const
     return ret;
 }
 
-std::set<std::pair<Duration, Results>> FuncProfilerTree::totalsByDuration() const
+std::vector<Results> FuncProfilerTree::totalsBy(const Compare<Results> &comp) const
 {
-    std::set<std::pair<Duration, Results>> ret;
+    auto res = totals();
+    std::vector<Results> ret{res.begin(), res.end()};
 
-    for (auto &[name, result] : totals())
-    {
-        ret.emplace(result.realDuration, result);
-    }
-
-    return ret;
-}
-
-std::set<std::pair<std::size_t, Results>> FuncProfilerTree::totalsByCallCount() const
-{
-    std::set<std::pair<std::size_t, Results>> ret;
-
-    for (auto &nameResultPair : totals())
-    {
-        ret.emplace(nameResultPair.second.callCount, nameResultPair.second);
-    }
+    std::sort(ret.begin(), ret.end(), [&](const Results &a, const Results &b) { return comp(a, b); });
 
     return ret;
 }
@@ -157,7 +150,7 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
     auto resMap = totals();
     auto resVector = std::vector(resMap.rbegin(), resMap.rend());
 
-    for (auto &[name, result] : resVector)
+    for (auto &result : resVector)
     {
         for (size_t i = 0; i < indent; i++) {
             ss << '|';
@@ -166,13 +159,13 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
             }
         }
 
-        ss << '+' << name << ": " << result.realDuration.count() << "s /" << result.callCount << std::endl;
+        ss << '+' << result.branchName << ": " << result.realDuration.count() << "s /" << result.callCount << std::endl;
     }
 
     return ss.str();
 }
 
-String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces) const
+String FuncProfilerTree::totalsStrBy(const Compare<Results> &comp, size_t indent, size_t indentSpaces) const
 {
     SStream indents;
     for (size_t i = 0; i < indent; i++)
@@ -189,12 +182,11 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
 
     SStream ss;
 
-    auto resSet = totalsByDuration();
-    auto resVector = std::vector(resSet.rbegin(), resSet.rend());
+    auto resVector = totalsBy(comp);
 
-    for (auto &[duration, result] : resVector)
+    for (auto &result : resVector)
     {
-        ss << indentstr << '+' << duration.count() << "s /" << result.callCount << " - "
+        ss << indentstr << '+' << result.realDuration.count() << "s /" << result.callCount << " - "
            << FmtStringView{result.branchName, fmtr} << std::endl;
     }
 
@@ -205,17 +197,17 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
 {
     if (mBranches.size() > 0)
     {
-        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>,
-                 std::greater<std::pair<Duration, const decltype(mBranches)::value_type *>>>
-            durationPtrPairs;
+        auto totalDur = realDuration();
 
-        for (auto &nameBranchPair : mBranches)
+        std::set<const FuncProfilerTree *, FuncProfilerTree::ByRealDuration> branchPtrs;
+
+        for (auto &branch : mBranches)
         {
-            durationPtrPairs.emplace(nameBranchPair.second.realDuration(), &nameBranchPair);
+            branchPtrs.emplace(&branch);
         }
         if (mDuration.count() > 0)
         {
-            durationPtrPairs.emplace(realNodeDuration(), nullptr);
+            branchPtrs.emplace(this);
         }
 
         SStream indents;
@@ -231,38 +223,58 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
         String newlinestr = "\n" + indentstr + "| ";
         StringFormatter fmtr{newlinestr};
 
-        for (auto &[duration, nameBranchPairPtr] : durationPtrPairs)
+        for (auto p_branch : branchPtrs)
         {
-            out << indentstr << '+' << duration.count() << "s /";
-            if (nameBranchPairPtr == nullptr)
+            // Entry start
+            out << indentstr << '+';
+
+            // Duration (s)
+            out << p_branch->realDuration().count() << "s ";
+
+            // Duration (relative)
+            if (mDuration.count() > 0)
             {
-                out << mCount << " - " << "<body>" << std::endl;
+                out << (p_branch->realDuration().count() / totalDur.count() * 100.0) << "% ";
+            }
+
+            // Count (total)
+            out << "/" << p_branch->mCount << " ";
+
+            // Count (relative)
+            if (mDuration.count() > 0)
+            {
+                out << "~" << ((double)p_branch->mCount / (double)mCount) << " ";
+            }
+
+            // Name
+            out << "- ";
+
+            if (p_branch == this)
+            {
+                out << "<body>" << std::endl;
             }
             else
             {
-                auto &name = nameBranchPairPtr->first;
-                auto &branch = nameBranchPairPtr->second;
-
-                out << branch.mCount << " - " << FmtStringView{name, fmtr} << std::endl;
-                branch.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
+                out << FmtStringView{p_branch->name(), fmtr} << std::endl;
+                p_branch->outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
             }
         }
     }
 }
 
-void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_t indent, size_t indentSpaces) const
+/*void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_t indent, size_t indentSpaces) const
 {
     if (mBranches.size() > 0)
     {
         auto totalDur = realDuration();
 
-        std::set<std::pair<Duration, const decltype(mBranches)::value_type *>,
-                 std::greater<std::pair<Duration, const decltype(mBranches)::value_type *>>>
+        std::set<std::pair<Duration, const FuncProfilerTree *>,
+                 std::greater<std::pair<Duration, const FuncProfilerTree *>>>
             durationPtrPairs;
 
-        for (auto &nameBranchPair : mBranches)
+        for (auto &branch : mBranches)
         {
-            durationPtrPairs.emplace(nameBranchPair.second.realDuration(), &nameBranchPair);
+            durationPtrPairs.emplace(branch.realDuration(), &branch);
         }
         if (mDuration.count() > 0)
         {
@@ -295,7 +307,7 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
 
             if (nameBranchPairPtr == nullptr)
             {
-                out << "~" << 1.0 << " - <body>" << std::endl;
+                out << "~" << 1.0 << " - <body>" << name << std::endl;
             }
             else
             {
@@ -315,7 +327,7 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
             }
         }
     }
-}
+}*/
 
 std::ostream &operator<<(std::ostream &out, FuncProfilerTree &tree)
 {
@@ -346,7 +358,7 @@ FuncProfiler::~FuncProfiler()
 namespace
 {
 
-FuncProfilerTree globalTree;
+FuncProfilerTree globalTree{"Global"};
 std::recursive_mutex globalTreeMutex;
 
 class ThreadFuncProfilerTreeWrapper
@@ -360,7 +372,7 @@ class ThreadFuncProfilerTreeWrapper
         globalTreeMutex.unlock();
     }
 
-    FuncProfilerTree localTree;
+    FuncProfilerTree localTree{"This thread"};
 };
 
 thread_local ThreadFuncProfilerTreeWrapper threadTreeWrapper;
