@@ -409,6 +409,7 @@ class FuncProfilerTree
     void merge(const FuncProfilerTree &tree);
 
   private:
+    String mBodyName;
     std::set<FuncProfilerTree, ByName> mBranches;
     std::vector<FuncProfilerTree *> mBranchPtrStack;
 };

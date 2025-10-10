@@ -50,7 +50,8 @@ template <typename OSS> OSS &operator<<(OSS &oss, const FmtStringView &fmtStr)
 
 } // namespace
 
-FuncProfilerTree::FuncProfilerTree(StringView name) : mName(name), mDuration(0), mChoreDuration(0), mCount(0)
+FuncProfilerTree::FuncProfilerTree(StringView name)
+    : mName(name), mBodyName{"<body of " + String{name} + ">"}, mDuration(0), mChoreDuration(0), mCount(0)
 {
     mBranchPtrStack.push_back(this);
 }
@@ -106,9 +107,9 @@ std::set<Results, Results::ByName> FuncProfilerTree::totals() const
     {
         ret.emplace(branch.name(), branch.realDuration(), branch.mCount);
     }
-    if (mDuration.count() > 0)
+    if (mDuration.count() > 0 && mBranches.size() > 0)
     {
-        ret.emplace("<body>", realNodeDuration(), mCount);
+        ret.emplace(mBodyName, realNodeDuration(), mCount);
     }
 
     for (auto &branch : mBranches)
@@ -205,7 +206,7 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
         {
             branchPtrs.emplace(&branch);
         }
-        if (mDuration.count() > 0)
+        if (mDuration.count() > 0 && mBranches.size() > 0)
         {
             branchPtrs.emplace(this);
         }
@@ -253,7 +254,7 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
 
             if (p_branch == this)
             {
-                out << "<body>" << std::endl;
+                out << FmtStringView{mBodyName, fmtr} << std::endl;
             }
             else
             {
