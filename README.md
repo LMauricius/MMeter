@@ -82,23 +82,23 @@ int main()
 
 Output:
 ```
-0.186687s /#2 - calcInt
-0.213233s /#2 - calcFloat
-0.399922s /#2 - test
-0.399923s /#7 - <body>
-0.399923s /#1 - main function subthread
+0.186687s /2 - calcInt
+0.213233s /2 - calcFloat
+0.399922s /2 - test
+0.399923s /7 - <body>
+0.399923s /1 - main function subthread
 
-0.399923s /#1 - main function subthread
-    0.000001s /#1 - <body>
-    0.399922s /#2 - test
-        0.000003s /#2 - <body>
-        0.186687s /#2 - calcInt
-        0.213233s /#2 - calcFloat
+0.399923s /1 - main function subthread
+    0.000001s /1 - <body>
+    0.399922s /2 - test
+        0.000003s /2 - <body>
+        0.186687s /2 - calcInt
+        0.213233s /2 - calcFloat
 
-0.399923s /#1 - main function subthread
-    0.000183% /^1.000000 - <body>
-    99.999817% /^2.000000 - test
-        0.000673% /^1.000000 - <body>
-        46.680728% /^1.000000 - calcInt
-        53.318599% /^1.000000 - calcFloat
+0.399923s /1 - main function subthread
+    0.000183% /~1.000000 - <body>
+    99.999817% /~2.000000 - test
+        0.000673% /~1.000000 - <body>
+        46.680728% /~1.000000 - calcInt
+        53.318599% /~1.000000 - calcFloat
 ```

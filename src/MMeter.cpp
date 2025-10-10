@@ -66,31 +66,30 @@ std::map<StringView, Results> FuncProfilerTree::totals() const
 {
     std::map<StringView, Results> ret;
 
-    for (auto &nameBranchPair : mBranches)
+    for (auto &[name, branch] : mBranches)
     {
-        ret.emplace(nameBranchPair.first,
-                    Results(nameBranchPair.first, nameBranchPair.second.realDuration(), nameBranchPair.second.mCount));
+        ret.emplace(name, Results(name, branch.realDuration(), branch.mCount));
     }
     if (mDuration.count() > 0)
     {
         ret.emplace("<body>", Results("<body>", realNodeDuration(), mCount));
     }
 
-    for (auto &nameBranchPair : mBranches)
+    for (auto &[name, branch] : mBranches)
     {
-        auto subTot = nameBranchPair.second.totals();
+        auto subTot = branch.totals();
 
-        for (auto &nameResultPair : subTot)
+        for (auto &[subName, result] : subTot)
         {
-            auto it = ret.find(nameResultPair.first);
+            auto it = ret.find(subName);
             if (it == ret.end())
             {
-                ret.emplace(nameResultPair.first, nameResultPair.second);
+                ret.emplace(subName, result);
             }
             else
             {
-                it->second.realDuration += nameResultPair.second.realDuration;
-                it->second.callCount += nameResultPair.second.callCount;
+                it->second.realDuration += result.realDuration;
+                it->second.callCount += result.callCount;
             }
         }
     }
@@ -102,7 +101,7 @@ std::set<std::pair<Duration, Results>> FuncProfilerTree::totalsByDuration() cons
 {
     std::set<std::pair<Duration, Results>> ret;
 
-    for (auto [name, result] : totals())
+    for (auto &[name, result] : totals())
     {
         ret.emplace(result.realDuration, result);
     }
@@ -129,7 +128,7 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
     auto resMap = totals();
     auto resVector = std::vector(resMap.rbegin(), resMap.rend());
 
-    for (auto [name, result] : resVector)
+    for (auto &[name, result] : resVector)
     {
         for (size_t i = 0; i < indent; i++) {
             ss << '|';
@@ -138,7 +137,7 @@ String FuncProfilerTree::totalsStr(size_t indent, size_t indentSpaces) const
             }
         }
 
-        ss << '+' << name << ": " << result.realDuration.count() << "s /#" << result.callCount << std::endl;
+        ss << '+' << name << ": " << result.realDuration.count() << "s /" << result.callCount << std::endl;
     }
 
     return ss.str();
@@ -151,7 +150,7 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
     auto resSet = totalsByDuration();
     auto resVector = std::vector(resSet.rbegin(), resSet.rend());
 
-    for (auto [duration, result] : resVector)
+    for (auto &[duration, result] : resVector)
     {
         for (size_t i = 0; i < indent; i++)
         {
@@ -162,7 +161,7 @@ String FuncProfilerTree::totalsByDurationStr(size_t indent, size_t indentSpaces)
             }
         }
 
-        ss << '+' << duration.count() << "s /#" << result.callCount << " - " << result.branchName << std::endl;
+        ss << '+' << duration.count() << "s /" << result.callCount << " - " << result.branchName << std::endl;
     }
 
     return ss.str();
@@ -185,7 +184,7 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
             durationPtrPairs.emplace(realNodeDuration(), nullptr);
         }
 
-        for (auto &durationPtrPair : durationPtrPairs)
+        for (auto &[duration, nameBranchPairPtr] : durationPtrPairs)
         {
             for (size_t i = 0; i < indent; i++)
             {
@@ -196,15 +195,18 @@ void FuncProfilerTree::outputBranchDurationsToOStream(std::ostream &out, size_t 
                 }
             }
 
-            out << '+' << durationPtrPair.first.count() << "s /#";
-            if (durationPtrPair.second == nullptr)
+            out << '+' << duration.count() << "s /";
+            if (nameBranchPairPtr == nullptr)
             {
                 out << mCount << " - " << "<body>" << std::endl;
             }
             else
             {
-                out << durationPtrPair.second->second.mCount << " - " << durationPtrPair.second->first << std::endl;
-                durationPtrPair.second->second.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
+                auto &name = nameBranchPairPtr->first;
+                auto &branch = nameBranchPairPtr->second;
+
+                out << branch.mCount << " - " << name << std::endl;
+                branch.outputBranchDurationsToOStream(out, indent + 1, indentSpaces);
             }
         }
     }
@@ -229,7 +231,7 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
             durationPtrPairs.emplace(realNodeDuration(), nullptr);
         }
 
-        for (auto &durationPtrPair : durationPtrPairs)
+        for (auto &[duration, nameBranchPairPtr] : durationPtrPairs)
         {
             for (size_t i = 0; i < indent; i++)
             {
@@ -242,29 +244,32 @@ void FuncProfilerTree::outputBranchPercentagesToOStream(std::ostream &out, size_
 
             if (mDuration.count() > 0)
             {
-                out << '+' << (durationPtrPair.first.count() / totalDur.count() * 100.0) << "% /";
+                out << '+' << (duration.count() / totalDur.count() * 100.0) << "% /";
             }
             else
             {
-                out << '+' << durationPtrPair.first.count() << "s /";
+                out << '+' << duration.count() << "s /";
             }
 
-            if (durationPtrPair.second == nullptr)
+            if (nameBranchPairPtr == nullptr)
             {
-                out << "^" << 1.0 << " - <body>" << std::endl;
+                out << "~" << 1.0 << " - <body>" << std::endl;
             }
             else
             {
+                auto &name = nameBranchPairPtr->first;
+                auto &branch = nameBranchPairPtr->second;
+
                 if (mDuration.count() > 0)
                 {
-                    out << "^" << ((double)durationPtrPair.second->second.mCount / (double)mCount) << " - ";
+                    out << "~" << ((double)branch.mCount / (double)mCount) << " - ";
                 }
                 else
                 {
-                    out << "#" << durationPtrPair.second->second.mCount << " - ";
+                    out << branch.mCount << " - ";
                 }
-                out << durationPtrPair.second->first << std::endl;
-                durationPtrPair.second->second.outputBranchPercentagesToOStream(out, indent + 1, indentSpaces);
+                out << name << std::endl;
+                branch.outputBranchPercentagesToOStream(out, indent + 1, indentSpaces);
             }
         }
     }
